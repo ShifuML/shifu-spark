@@ -1,8 +1,9 @@
 package ml.shifu.shifu.spark.eval
 
-object Eval {
+import org.apache.spark.rdd.RDD
+import scala.collection.mutable.Map
 
-    def main(args: Array[String]) {
-        
-    }
+trait Eval {
+
+    def evalScore(inputRDD : RDD[String]) : RDD[Map[String, Double]]
 }
