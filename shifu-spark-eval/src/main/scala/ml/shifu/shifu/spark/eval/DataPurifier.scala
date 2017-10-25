@@ -7,15 +7,11 @@ import com.google.common.base.Splitter
 import scala.collection.JavaConverters._
 import org.apache.commons.lang.StringUtils
 
-trait DataPurifier {
+abstract class DataPurifier(inputRDD : RDD[String], headers : Array[String]) {
 
-    var inputRDD : RDD[String] = _
+    var delimiter : String
 
-    var headers : Array[String] = _
-
-    var delimiter : String = _
-
-    var filterExp : Option[String] = _
+    var filterExp : Option[String]
 
     def init()
 
@@ -23,8 +19,6 @@ trait DataPurifier {
         init
         purify(inputRDD, headers, delimiter, filterExp) 
     }
-
-        
 
     private[this] def purify(inputRDD : RDD[String], headers : Array[String], delimiter : String, filterExp : Option[String]): RDD[String] = {
         filterExp match {
@@ -48,7 +42,7 @@ trait DataPurifier {
                     }
                     val filterFunc : (Array[String] => Boolean) = { inputData : Array[String] => {
                         jexlExpression match {
-                            case None => true
+                            case None => true && (headers.length == inputData.length)
                             case Some(jexp) => {
                                 if(headers.length != inputData.length) {
                                     false
