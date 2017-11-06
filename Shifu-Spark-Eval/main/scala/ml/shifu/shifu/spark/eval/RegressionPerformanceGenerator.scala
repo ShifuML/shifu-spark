@@ -8,17 +8,18 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.broadcast.Broadcast
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap, Set}
 import scala.collection.{Iterator, Seq, Map}
 
-class PerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalConfig : Broadcast[EvalConfig], @transient context : SparkContext, accumMap : Map[String, Accumulator[Long]], modelNum : Int) extends Serializable {
+class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalConfig : Broadcast[EvalConfig], @transient context : SparkContext, accumMap : Map[String, Accumulator[Long]], modelNum : Int) extends Serializable {
 
-    //val scale = evalConfig.value.getScoreScale
-    val scale = 1000
-
+    val scale = evalConfig.value.getScoreScale
     
-    def genPerfByModels(scoreRDD : RDD[scala.collection.mutable.Map[String, Double]]) {
+    def genPerfByModels(scoreRDDRaw : RDD[scala.collection.mutable.Map[String, Any]]) {
+        val scoreRDD = scoreRDDRaw.map(dataMap => dataMap.mapValues(_.toString.toDouble))
         scoreRDD.persist(StorageLevel.MEMORY_AND_DISK)
+
         for(num <- 0 until modelNum) {
             val key = "model" + num
             val sortedRDD = sortByFieldName(key, scoreRDD)
@@ -27,9 +28,15 @@ class PerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalConfig : Br
         val key = "avg"
         val sortedRDD = sortByFieldName(key, scoreRDD)
         genPerformance(sortedRDD, key)
+        evalConfig.value.getAllMetaColumns(modelConfig.value).asScala.map(x => {
+            val rdd = sortByFieldName("meta:" + x, scoreRDD)
+            genPerformance(rdd, "meta:" + x)
+        })
     }
 
-    def genPerformance(sortedRDD : RDD[Map[String, Double]], key : String) = {
+    def genPerformance(sortedRDD : RDD[Map[String, Double]], key : String) {
+        //TODO: remove debug log
+        Console.println("=================Start gen " + key + " perf ===========================")
         sortedRDD.persist(StorageLevel.MEMORY_AND_DISK)
         sortedRDD.saveAsTextFile("hdfs:///user/website/wzhu1/" + key + "-sorted.txt")
         val partitionsCount = sortedRDD.getNumPartitions
@@ -46,7 +53,7 @@ class PerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalConfig : Br
         val numBucket = evalConfig.value.getPerformanceBucketNum
         val step = 1d / numBucket
         val sumOfPartitionsData = sortedRDD.mapPartitionsWithIndex((index : Int, iterator : Iterator[Map[String, Double]]) => {
-            var tagSum  = 0d
+            var tagSum = 0d
             var weightTagSum = 0d
             var recordCountSum = 0d
             var weightSum = 0d
@@ -90,6 +97,7 @@ class PerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalConfig : Br
                 currentRecord += 1
                 currentTag += map.getOrElse("tag", 0d)
                 currentWeightTag += map.getOrElse("weightTag", 0d)
+
                 val score = map.getOrElse(key, 0d)
                 val tp = posCount - currentTag
                 val tn = currentRecord - currentTag
@@ -107,12 +115,7 @@ class PerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalConfig : Br
                 val weightPrecision = weightTp / (weightTp + weightFp).toDouble
                 val fpr = fp / (fp + tn).toDouble
                 val weightFpr = weightFp / (weightFp + weightTn).toDouble
-                /*
-                resultArray += Map(("actionRate", actionRate), ("weightActionRate", weightActionRate), ("recall", recall), ("weightRecall", weightRecall),
-                    ("precision", precision), ("weightPrecision", weightPrecision), ("fpr", fpr), ("weightFpr", weightFpr), ("score", score), ("tp", tp), ("tn", tn),
-                    ("fp", fp), ("fn", fn), ("weightTp", weightTp), ("weighgtTn", weightTn), ("weightFn", weightFn), ("weightFp", weightFp), ("tagBase", tagBase), ("currentTag", currentTag),
-                    ("currentWeightTag", currentWeightTag), ("weightTagBase", weightTagBase), ("currentRecorde", currentRecord), ("recordBase", recordBase), ("partitionIndex", index), ("weightBase", weightBase))
-                */
+
                 resultArray += Map(("actionRate", actionRate), ("weightActionRate", weightActionRate), ("recall", recall), ("weightRecall", weightRecall),
                     ("precision", precision), ("weightPrecision", weightPrecision), ("fpr", fpr), ("weightFpr", weightFpr), ("score", score), ("currentRecord", currentRecord))
             }
@@ -135,9 +138,10 @@ class PerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalConfig : Br
         })
         //TODO: change hard code path
         val perfResult = perfResultRDD.saveAsTextFile("hdfs:///user/website/wzhu1/" + key + "-perf.txt")
+        sortedRDD.unpersist(true)
     }
     
-    def sortByFieldName(name : String, scoreRDD : RDD[scala.collection.mutable.Map[String, Double]]) : RDD[Map[String, Double]] = {
+    def sortByFieldName(name : String, scoreRDD : RDD[scala.collection.Map[String, Double]]) : RDD[Map[String, Double]] = {
         scoreRDD.map(map => map.filterKeys(key => Set(name, "weightTag", "tag", "weightColumn").contains(key))).sortBy(map => map.getOrElse(name, Double.NaN))
     }
 }
