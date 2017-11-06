@@ -5,5 +5,5 @@ import scala.collection.mutable.Map
 
 trait Eval {
 
-    def evalScore(inputRDD : RDD[String]) : RDD[Map[String, Double]]
+    def evalScore(inputRDD : RDD[String]) : RDD[Map[String, Any]]
 }
