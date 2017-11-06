@@ -28,10 +28,10 @@ class ShifuEval(sourceType : SourceType, modelConfigPath : String, columnConfigP
 
     val modelConfig : ModelConfig = CommonUtils.loadModelConfig(modelConfigPath, sourceType)
     val evalConfig : EvalConfig = modelConfig.getEvalConfigByName(evalSetName)
+    val columnConfigList : java.util.List[ColumnConfig] = CommonUtils.loadColumnConfigList(columnConfigPath, sourceType)
     val headers : Array[String] = CommonUtils.getFinalHeaders(evalConfig)
     var inputRDD : RDD[String] = context.textFile(evalConfig.getDataSet.getDataPath)
     val pathFinder : PathFinder = new PathFinder(modelConfig)
-    val a = 0
 
     def init() {
         validateModelConfig
@@ -105,16 +105,18 @@ class ShifuEval(sourceType : SourceType, modelConfigPath : String, columnConfigP
         JSONUtils.writeValue(new File(this.pathFinder.getModelConfigPath(SourceType.LOCAL)), modelConfig)
     }
     
-    def eval() : RDD[Map[String, Double]] = {
+    def eval() : RDD[Map[String, Any]] = {
         val dataPurifier = ShifuDataPurifier(this.modelConfig, this.inputRDD, headers)
         val filteredRDD = dataPurifier.purify()
         val broadcastModelConfig = this.context.broadcast(this.modelConfig)
         val broadcastEvalConfig = this.context.broadcast(this.evalConfig)
         val broadcastHeaders = this.context.broadcast(this.headers)
-        val modelEval = modelConfig.getAlgorithm match {
-            case Constants.GBT => 
-                Option(ShifuTreeEval(broadcastModelConfig, broadcastEvalConfig, this.context, broadcastHeaders, this.accumMap))
-            case _ => None
+        val broadcastColumnConfigList = this.context.broadcast(this.columnConfigList)
+        val modelEval = modelConfig.isRegression match {
+            case true => 
+                Option(ShifuRegressionEval(broadcastModelConfig, broadcastEvalConfig, broadcastColumnConfigList, this.context, broadcastHeaders, this.accumMap))
+            case _ => 
+                Option(ShifuClassificationEval(broadcastModelConfig, broadcastEvalConfig, broadcastColumnConfigList, this.context, broadcastHeaders, this.accumMap))
         }
         modelEval match {
             case Some(shifuModelEval) => {
