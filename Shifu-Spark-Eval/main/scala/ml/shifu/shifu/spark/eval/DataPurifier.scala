@@ -7,6 +7,8 @@ import com.google.common.base.Splitter
 import scala.collection.JavaConverters._
 import org.apache.commons.lang.StringUtils
 
+import ml.shifu.shifu.column.NSColumn
+
 abstract class DataPurifier(inputRDD : RDD[String], headers : Array[String]) {
 
     var delimiter : String
@@ -42,19 +44,18 @@ abstract class DataPurifier(inputRDD : RDD[String], headers : Array[String]) {
                     }
                     val filterFunc : (Array[String] => Boolean) = { inputData : Array[String] => {
                         jexlExpression match {
-                            case None => true && (headers.length == inputData.length)
+                            case None => true
                             case Some(jexp) => {
-                                if(headers.length != inputData.length) {
-                                    false
-                                } else {
-                                    for(i <- 0 until headers.length) {
-                                        jc.set(headers(i), inputData(i))
-                                    }
-                                    try {
-                                        Boolean.unbox(jexp.evaluate(jc))
-                                    } catch {
-                                        case _  => false
-                                    }
+                                for(i <- 0 until headers.length) {
+                                    jc.set(headers(i), inputData(i))
+                                    val nsColumn = new NSColumn(headers(i))
+                                    jc.set(nsColumn.getSimpleName(), inputData(i))
+
+                                }
+                                try {
+                                    Boolean.unbox(jexp.evaluate(jc))
+                                } catch {
+                                    case _  => false
                                 }
                             }
                         }
