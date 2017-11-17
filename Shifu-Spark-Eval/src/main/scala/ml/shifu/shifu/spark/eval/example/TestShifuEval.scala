@@ -17,7 +17,7 @@ object TestShifuEval {
         val accumMap = new HashMap[String, Accumulator[Long]]
         val shifuEval = new ShifuEval(SourceType.LOCAL, "./ModelConfig.json", "./ColumnConfig.json", "Eval2", context, accumMap)
         val scoreRDD = shifuEval.eval
-        scoreRDD.saveAsTextFile("hdfs://stampy/user/website/wzhu1-test-score")
+        scoreRDD.saveAsTextFile("hdfs:///user/website/wzhu1-test-score")
         for(accumName <- accumMap.keySet) {
             Console.println("Accumulator : " + accumName + " is: " + accumMap.getOrElse(accumName, context.accumulator(0l)).value)
         }
