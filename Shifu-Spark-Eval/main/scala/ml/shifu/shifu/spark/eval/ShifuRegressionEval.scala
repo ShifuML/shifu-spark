@@ -95,8 +95,13 @@ class ShifuRegressionEval(broadcastModelConfig : Broadcast[ModelConfig], broadca
                    outputResults.put("avg", cs.getAvgScore)
                    outputResults.put("median", cs.getMedianScore)
                    for(metaColumn <- evalConfig.getAllMetaColumns(modelConfig).asScala) {
-                        if(inputMap.get(new NSColumn(metaColumn)) != null) {
-                            outputResults.put("meta:"+ metaColumn, inputMap.get(new NSColumn(metaColumn)).toString.toDouble)
+                        try {
+                            if(inputMap.get(new NSColumn(metaColumn)) != null) {
+                                outputResults.put("meta_"+ metaColumn, inputMap.get(new NSColumn(metaColumn)).toString.toDouble)
+                            }
+                        } catch {
+                            case _ => Console.println(metaColumn + " no data")
+                                None
                         }
                    }
                    var tag = ""
@@ -110,14 +115,14 @@ class ShifuRegressionEval(broadcastModelConfig : Broadcast[ModelConfig], broadca
                        if(posTag.contains(tag)) {
                             posNum += 1
                             weightPos += (outputResults.getOrElse("weightColumn", 1.0d).toString.toDouble * Constants.EVAL_COUNTER_WEIGHT_SCALE).toLong
-                            outputResults.put("tag", tag.toLong)
+                            outputResults.put("tag", tag.toDouble)
                             outputResults.put("weightTag", (outputResults.getOrElse("weightColumn", 1.0d).toString.toDouble * Constants.EVAL_COUNTER_WEIGHT_SCALE).toLong)
                             resultsArray += outputResults
                        } else if(negTag.contains(tag)) {
                             negNum += 1
                             weightNeg += (outputResults.getOrElse("weightColumn", 1.0d).toString.toDouble * Constants.EVAL_COUNTER_WEIGHT_SCALE).toLong
-                            outputResults.put("tag", tag.toLong)
-                            outputResults.put("weightTag", (0 * Constants.EVAL_COUNTER_WEIGHT_SCALE).toLong)
+                            outputResults.put("tag", tag.toDouble)
+                            outputResults.put("weightTag", (0 * Constants.EVAL_COUNTER_WEIGHT_SCALE).toDouble)
                             resultsArray += outputResults
                        }
                    }

@@ -2,6 +2,7 @@ package ml.shifu.shifu.spark.eval
 
 import ml.shifu.shifu.container.obj.{ModelConfig, EvalConfig}
 import ml.shifu.shifu.util.{CommonUtils, Constants}
+import ml.shifu.shifu.spark.eval.exception._
 
 import org.apache.spark.{SparkContext, Accumulator}
 import org.apache.spark.rdd.RDD
@@ -28,9 +29,9 @@ class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalC
         val key = "avg"
         val sortedRDD = sortByFieldName(key, scoreRDD)
         genPerformance(sortedRDD, key)
-        evalConfig.value.getAllMetaColumns(modelConfig.value).asScala.map(x => {
-            val rdd = sortByFieldName("meta:" + x, scoreRDD)
-            genPerformance(rdd, "meta:" + x)
+        evalConfig.value.getScoreMetaColumns(modelConfig.value).asScala.map(x => {
+            val rdd = sortByFieldName("meta_" + x, scoreRDD)
+            genPerformance(rdd, "meta_" + x)
         })
     }
 
@@ -41,14 +42,29 @@ class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalC
         sortedRDD.saveAsTextFile("hdfs:///user/website/wzhu1/" + key + "-sorted.txt")
         val partitionsCount = sortedRDD.getNumPartitions
         val getLast = (iterator : Iterator[Map[String, Double]]) => {
-            var last = iterator.next
-            while(iterator.hasNext) {
-                last = iterator.next
+            if(!iterator.hasNext) {
+                Map[String, Double]()
+            } else {
+                var last = iterator.next
+                while(iterator.hasNext) {
+                    last = iterator.next
+                }
+                last
             }
-            last
         }
 
-        val max = context.runJob(sortedRDD, getLast, Seq(partitionsCount - 1)).head.getOrElse(key, 1d * scale)
+        val max = try {
+            context.runJob(sortedRDD, getLast, Seq(partitionsCount - 1)).head.get(key) match {
+                case Some(value) => value 
+                case None => Console.println(key + " result is incorrect , check input")
+                         throw new SparkEvalException("No max value of " + key, ExceptionInfo.NoScoreResult)
+                }
+        } catch {
+            case SparkEvalException(msg, exInfo) => { 
+                Console.println(exInfo.toString + " " + msg)
+                return
+            }
+        }
         val min = sortedRDD.first.getOrElse(key, scale.toDouble)
         val numBucket = evalConfig.value.getPerformanceBucketNum
         val step = 1d / numBucket
