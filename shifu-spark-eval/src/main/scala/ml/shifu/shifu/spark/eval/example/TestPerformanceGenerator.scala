@@ -1,6 +1,6 @@
 package ml.shifu.shifu.spark.eval.example
 
-import ml.shifu.shifu.spark.eval.{Eval, ShifuEval, PerformanceGenerator}
+import ml.shifu.shifu.spark.eval.{Eval, ShifuEval, RegressionPerformanceGenerator}
 import ml.shifu.shifu.container.obj.RawSourceData.SourceType
 import ml.shifu.shifu.util.{CommonUtils, Constants}
 
@@ -21,7 +21,7 @@ object TestPerformanceGenerator {
         val broadcastEvalConfig = context.broadcast(shifuEval.evalConfig)
         val modelNum = CommonUtils.getBasicModelsCnt(shifuEval.modelConfig, shifuEval.evalConfig, shifuEval.evalConfig.getDataSet.getSource)
         val scoreRDD = shifuEval.eval
-        val perfGen = new PerformanceGenerator(broadcastModelConfig, broadcastEvalConfig, context, accumMap, modelNum)
+        val perfGen = new RegressionPerformanceGenerator(broadcastModelConfig, broadcastEvalConfig, context, accumMap, modelNum)
         perfGen.genPerfByModels(scoreRDD)
         context.stop
     }
