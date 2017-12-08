@@ -315,9 +315,11 @@ object PrAndRocChart{
             case ex => throw new SparkEvalException("Fail to get writer", ExceptionInfo.IOException, ex)
         }
         try {
+            val bucketNum = evalConfig.getPerformanceBucketNum
             val count = perfArray.size
+
             initChart(writer)
-            val chart0Data = perfArray.map(x => (x._1, getPointsData(x._2, "weightRecall", 10)))
+            val chart0Data = perfArray.map(x => (x._1, getPointsData(x._2, "weightRecall", bucketNum)))
             genCSV(chart0Data, modelConfig, evalConfig, "weight_recall")
 
             val chart0Keys = Array("weightPrecision", "weightRecall", "weightPrecision", "weightRecall", "weightFpr", "weightActionRate", "score")
@@ -326,7 +328,7 @@ object PrAndRocChart{
             val chart1Keys = Array("precision", "weightRecall", "precision", "weightRecall", "weightFpr", "weightActionRate", "score")
             drawWithData(chart0Data, chart1Keys, 1 * count, writer, evalConfig, modelConfig) 
 
-            val chart2Data = perfArray.map(x => (x._1 ,getPointsData(x._2, "recall", 10)))
+            val chart2Data = perfArray.map(x => (x._1 ,getPointsData(x._2, "recall", bucketNum)))
             genCSV(chart2Data, modelConfig, evalConfig, "recall")
             
             val chart2Keys = Array("weightPrecision", "recall", "weightPrecision", "recall", "fpr", "actionRate", "score")
@@ -337,7 +339,7 @@ object PrAndRocChart{
 
             drawWithData(chart2Data, chart3Keys, 3 * count, writer, evalConfig, modelConfig) 
 
-            val chart4Data = perfArray.map(x => (x._1 ,getPointsData(x._2, "weightFpr", 10)))
+            val chart4Data = perfArray.map(x => (x._1 ,getPointsData(x._2, "weightFpr", bucketNum)))
             genCSV(chart4Data, modelConfig, evalConfig, "weight_roc")
 
             val chart4Keys = Array("weightRecall", "weightFpr", "weightRecall", "weightFpr", "weightPrecision", "weightRecall", "score")
@@ -345,7 +347,7 @@ object PrAndRocChart{
             val chart5Keys = Array("recall", "weightFpr", "weightPrecision", "recall", "weightFpr", "weightActionRate", "score")
             drawWithData(chart4Data, chart5Keys, 5 * count, writer, evalConfig, modelConfig) 
 
-            val chart6Data = perfArray.map(x => (x._1 ,getPointsData(x._2, "fpr", 10)))
+            val chart6Data = perfArray.map(x => (x._1 ,getPointsData(x._2, "fpr", bucketNum)))
             genCSV(chart6Data, modelConfig, evalConfig, "roc")
 
             val chart6Keys = Array("weightRecall", "fpr", "precision", "weightRecall", "fpr", "actionRate", "score")
