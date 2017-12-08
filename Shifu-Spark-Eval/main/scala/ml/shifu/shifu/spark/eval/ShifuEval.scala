@@ -17,7 +17,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.StringUtils
 
-import scala.collection.mutable.{ArrayBuffer, Set, HashSet, Map}
+import scala.collection.mutable.{ArrayBuffer, Set, HashSet, Map, HashMap}
+import scala.collection.JavaConverters._
 
 import java.io.File
 
@@ -27,7 +28,12 @@ class ShifuEval(sourceType : SourceType, modelConfigPath : String, columnConfigP
     evalSetName : String, context : SparkContext, accumMap : Map[String, Accumulator[Long]]) {
 
     val modelConfig : ModelConfig = CommonUtils.loadModelConfig(modelConfigPath, sourceType)
-    val evalConfig : EvalConfig = modelConfig.getEvalConfigByName(evalSetName)
+    val evalConfig : EvalConfig = if(StringUtils.isBlank(evalSetName)) {
+        val evals = modelConfig.getEvals.asScala
+        evals(0)
+    } else {
+        modelConfig.getEvalConfigByName(evalSetName)
+    }
     val columnConfigList : java.util.List[ColumnConfig] = CommonUtils.loadColumnConfigList(columnConfigPath, sourceType)
     val headers : Array[String] = CommonUtils.getFinalHeaders(evalConfig)
     var inputRDD : RDD[String] = context.textFile(evalConfig.getDataSet.getDataPath)
@@ -40,7 +46,6 @@ class ShifuEval(sourceType : SourceType, modelConfigPath : String, columnConfigP
         val conf : SparkConf = context.getConf
         //sync file from local to hdfs use the lib in shifu
         val evalSetPath = this.pathFinder.getEvalSetPath(this.evalConfig, SourceType.LOCAL)
-        inputRDD = context.textFile(evalSetPath)
         FileUtils.forceMkdir(new File(evalSetPath))
         this.sourceType match {
             case SourceType.HDFS => CommonUtils.copyConfFromLocalToHDFS(this.modelConfig, this.pathFinder)
@@ -96,6 +101,8 @@ class ShifuEval(sourceType : SourceType, modelConfigPath : String, columnConfigP
                         saveModelConfig
 
                     }
+                case ci"NN" => 
+                        saveModelConfig
                 case _ => throw new ShifuException(ShifuErrorCode.ERROR_UNSUPPORT_ALG);
             }
         }
@@ -112,17 +119,35 @@ class ShifuEval(sourceType : SourceType, modelConfigPath : String, columnConfigP
         val broadcastEvalConfig = this.context.broadcast(this.evalConfig)
         val broadcastHeaders = this.context.broadcast(this.headers)
         val broadcastColumnConfigList = this.context.broadcast(this.columnConfigList)
-        val modelEval = modelConfig.isRegression match {
-            case true => 
+        val modelEval : Option[Eval] = if(modelConfig.isRegression) {
                 Option(ShifuRegressionEval(broadcastModelConfig, broadcastEvalConfig, broadcastColumnConfigList, this.context, broadcastHeaders, this.accumMap))
-            case _ => 
+        } else {
                 Option(ShifuClassificationEval(broadcastModelConfig, broadcastEvalConfig, broadcastColumnConfigList, this.context, broadcastHeaders, this.accumMap))
         }
-        modelEval match {
+        val result = modelEval match {
             case Some(shifuModelEval) => {
                 shifuModelEval.evalScore(filteredRDD)
             }            
             case _ => throw new RuntimeException("ModelEval initialize failed.")
         }
+        result.saveAsTextFile(evalConfig.getName + "eval-score")
+        
+        if(modelConfig.isRegression) {
+            val modelNum = CommonUtils.getBasicModelsCnt(this.modelConfig, this.evalConfig, this.evalConfig.getDataSet.getSource)
+            val perfGen = new RegressionPerformanceGenerator(broadcastModelConfig, broadcastEvalConfig, context, accumMap, modelNum)
+            perfGen.genPerfByModels(result)
+        }
+        result
+    }
+}
+
+object ShifuEval {
+    
+    def main(args : Array[String]) {
+        val context = new SparkContext
+        val accumMap = new HashMap[String, Accumulator[Long]]
+        val shifuEval = new ShifuEval(SourceType.LOCAL, "./ModelConfig.json", "./ColumnConfig.json", "", context, accumMap)
+        shifuEval.eval
+        context.stop
     }
 }
