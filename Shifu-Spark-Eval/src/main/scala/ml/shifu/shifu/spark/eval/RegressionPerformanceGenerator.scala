@@ -42,14 +42,6 @@ class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalC
             val sortedRDD = sortByFieldName(key, scoreRDD)
             val perfArray = genPerformance(sortedRDD, key)
             map.put(key, perfArray)
-            /*
-            val t = new Thread(new Runnable(){
-                def run() {
-                    GainChart.draw(perfArray, key + "_GainChart.html", modelConfig.value, evalConfig.value)
-                }
-            })
-            t.start
-            */
         }
         val key = "avg"
         val sortedRDD = sortByFieldName(key, scoreRDD)
@@ -71,7 +63,7 @@ class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalC
 
     def genPerformance(sortedRDD : RDD[Map[String, Double]], key : String) = {
         //TODO: remove debug log
-        Console.println("=================Start gen " + key + " perf ===========================")
+        Console.println("Start gen " + key + " perf")
         sortedRDD.persist(StorageLevel.MEMORY_AND_DISK)
         sortedRDD.saveAsTextFile("hdfs:///user/website/wzhu1/" + key + "-sorted.txt")
         val partitionsCount = sortedRDD.getNumPartitions
@@ -115,11 +107,20 @@ class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalC
             Array(Map(("record" + index, recordCountSum), ("tagSum" + index, tagSum), ("weightSum" + index, weightSum), ("weightTagSum" + index, weightTagSum))).iterator
         }).collect().reduce((map1, map2) => map1 ++ map2)
 
+        val recordCount = sumOfPartitionsData.filterKeys(key => key.contains("record")).map(map => map._2).reduce(_ + _).toLong
+        val posCount = sumOfPartitionsData.filterKeys(key => key.contains("tagSum")).map(map => map._2).reduce(_ + _).toLong
+        val negCount = recordCount - posCount
+        val weightSum = sumOfPartitionsData.filterKeys(key => key.contains("weightSum")).map(map => map._2).reduce(_ + _).toLong
+        val weightPosSum = sumOfPartitionsData.filterKeys(key => key.contains("weightTagSum")).map(map => map._2).reduce(_ + _).toLong
+        val weightNegSum = weightSum - weightPosSum
+
+        /*
         val recordCount = accumMap.get(Constants.COUNTER_RECORDS).map(accum => accum.value).getOrElse(0l)
         val posCount = accumMap.get(Constants.COUNTER_POSTAGS).map(accum => accum.value).getOrElse(0l)
         val weightPosSum = accumMap.get(Constants.COUNTER_WPOSTAGS).map(accum => accum.value).getOrElse(0l)
         val negCount = accumMap.get(Constants.COUNTER_NEGTAGS).map(accum => accum.value).getOrElse(0l)
         val weightNegSum = accumMap.get(Constants.COUNTER_WNEGTAGS).map(accum => accum.value).getOrElse(0l)
+        */
         
         Console.println("recordCount is " + recordCount)
         Console.println("posCount is " + posCount)
