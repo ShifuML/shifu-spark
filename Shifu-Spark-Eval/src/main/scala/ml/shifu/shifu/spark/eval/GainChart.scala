@@ -280,8 +280,9 @@ object GainChart{
         }
         try {
             val count = perfArray.size
+            val bucketNum = evalConfig.getPerformanceBucketNum
             initChart(writer)
-            val chart0Data = perfArray.map(x => (x._1, getPointsData(x._2, "weightActionRate", 10)))
+            val chart0Data = perfArray.map(x => (x._1, getPointsData(x._2, "weightActionRate", bucketNum)))
             genCSV(chart0Data, modelConfig, evalConfig, "weight_gain")
 
             val chart0Keys = Array("weightRecall", "weightActionRate", "weightActionRate", "weightPrecision", "actionRate", "score")
@@ -290,7 +291,7 @@ object GainChart{
             val chart1Keys = Array("recall", "weightActionRate", "weightActionRate", "precision", "actionRate", "score")
             drawWithData(chart0Data, chart1Keys, 1 * count, writer, evalConfig, modelConfig) 
 
-            val chart2Data = perfArray.map(x => (x._1 ,getPointsData(x._2, "actionRate", 10)))
+            val chart2Data = perfArray.map(x => (x._1 ,getPointsData(x._2, "actionRate", bucketNum)))
             genCSV(chart2Data, modelConfig, evalConfig, "gain")
 
             val chart2Keys = Array("weightRecall", "actionRate", "weightActionRate", "weightPrecision", "actionRate", "score")

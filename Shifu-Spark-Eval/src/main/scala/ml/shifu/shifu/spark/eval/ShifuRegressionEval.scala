@@ -24,6 +24,7 @@ class ShifuRegressionEval(broadcastModelConfig : Broadcast[ModelConfig], broadca
     broadcastHeaders : Broadcast[Array[String]], accumMap : Map[String, Accumulator[Long]]) extends Eval with Serializable {
 
     def evalScore(filteredRdd : RDD[String]) : RDD[Map[String, Any]] = {
+        Console.println("call regresion eval score")
         val recordCounter = accumMap.getOrElseUpdate(Constants.COUNTER_RECORDS, 
             new Accumulator(0l, AccumulatorParam.LongAccumulatorParam, Option(Constants.COUNTER_RECORDS)))
 
@@ -80,9 +81,9 @@ class ShifuRegressionEval(broadcastModelConfig : Broadcast[ModelConfig], broadca
                    val outputResults = new HashMap[String, Any]
                    if(StringUtils.isNotBlank(evalConfig.getDataSet.getWeightColumnName) && 
                         inputMap.get(new NSColumn(evalConfig.getDataSet.getWeightColumnName)) != null) {
-                        outputResults.put("weightColumn", inputMap.get(new NSColumn(evalConfig.getDataSet.getWeightColumnName)).toString.toDouble)
+                        outputResults.put("weightColumn", (inputMap.get(new NSColumn(evalConfig.getDataSet.getWeightColumnName)).toString.toDouble * Constants.EVAL_COUNTER_WEIGHT_SCALE).toLong)
                    } else {
-                        outputResults.put("weightColumn", 1.0d)
+                        outputResults.put("weightColumn", 1.0 * Constants.EVAL_COUNTER_WEIGHT_SCALE.toLong)
                    }
                    var modelIndex = 0
                    val cs = modelRunner.computeNsData(inputMap)
@@ -109,26 +110,29 @@ class ShifuRegressionEval(broadcastModelConfig : Broadcast[ModelConfig], broadca
                         tag = CommonUtils.trimTag(inputMap.get(new NSColumn(modelConfig.getTargetColumnName)).toString)
                    } catch {
                         case _ => //throw new RuntimeException("null value is " + modelConfig.getTargetColumnName + " in "  + line)
+                            Unit
                    }
                    recordNum += 1     
                    if(tag != null) {
                        if(posTag.contains(tag)) {
                             posNum += 1
-                            weightPos += (outputResults.getOrElse("weightColumn", 1.0d).toString.toDouble * Constants.EVAL_COUNTER_WEIGHT_SCALE).toLong
-                            outputResults.put("tag", tag.toDouble)
-                            outputResults.put("weightTag", (outputResults.getOrElse("weightColumn", 1.0d).toString.toDouble * Constants.EVAL_COUNTER_WEIGHT_SCALE).toLong)
+                            weightPos += outputResults.getOrElse("weightColumn", 1.0d * Constants.EVAL_COUNTER_WEIGHT_SCALE.toLong).toString.toDouble.toLong
+                            outputResults.put("tag", tag)
+                            outputResults.put("weightTag", (outputResults.getOrElse("weightColumn", 1.0d * Constants.EVAL_COUNTER_WEIGHT_SCALE.toLong)))
                             resultsArray += outputResults
                        } else if(negTag.contains(tag)) {
                             negNum += 1
-                            weightNeg += (outputResults.getOrElse("weightColumn", 1.0d).toString.toDouble * Constants.EVAL_COUNTER_WEIGHT_SCALE).toLong
-                            outputResults.put("tag", tag.toDouble)
-                            outputResults.put("weightTag", (0 * Constants.EVAL_COUNTER_WEIGHT_SCALE).toDouble)
+                            weightNeg += (outputResults.getOrElse("weightColumn", 1.0d * Constants.EVAL_COUNTER_WEIGHT_SCALE.toLong)).toString.toDouble.toLong
+                            outputResults.put("tag", tag)
+                            outputResults.put("weightTag", 0d)
                             resultsArray += outputResults
+                       } else {
+                            outputResults.put("tag", tag)
+                            outputResults.put("weightTag", 0d)
                        }
                    }
                }
             }
-
         recordCounter.add(recordNum)
         posCounter.add(posNum)
         weightPosCounter.add(weightPos)
@@ -141,7 +145,9 @@ class ShifuRegressionEval(broadcastModelConfig : Broadcast[ModelConfig], broadca
 
 object ShifuRegressionEval {
 
-    def apply(modelConfig : Broadcast[ModelConfig], evalConfig : Broadcast[EvalConfig], columnConfigList : Broadcast[java.util.List[ColumnConfig]], context : SparkContext, headers : Broadcast[Array[String]], accumMap : Map[String,Accumulator[Long]]) = {
+    def apply(modelConfig : Broadcast[ModelConfig], evalConfig : Broadcast[EvalConfig], columnConfigList : Broadcast[java.util.List[ColumnConfig]], context : SparkContext, 
+        headers : Broadcast[Array[String]], accumMap : Map[String,Accumulator[Long]]) = {
+
         new ShifuRegressionEval(modelConfig, evalConfig, columnConfigList, context, headers, accumMap) 
     }
 }
