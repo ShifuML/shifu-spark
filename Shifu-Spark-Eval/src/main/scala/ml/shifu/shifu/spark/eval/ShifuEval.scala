@@ -130,7 +130,9 @@ class ShifuEval(sourceType : SourceType, modelConfigPath : String, columnConfigP
             }            
             case _ => throw new RuntimeException("ModelEval initialize failed.")
         }
-        result.saveAsTextFile(evalConfig.getName + "eval-score")
+        val savePath = evalConfig.getName + "_" + System.currentTimeMillis + "_" + "eval-score"
+        Console.println("Save eval result to " + savePath)
+        result.saveAsTextFile(savePath)
         
         if(modelConfig.isRegression) {
             val modelNum = CommonUtils.getBasicModelsCnt(this.modelConfig, this.evalConfig, this.evalConfig.getDataSet.getSource)
@@ -147,6 +149,7 @@ object ShifuEval {
         val context = new SparkContext
         val accumMap = new HashMap[String, Accumulator[Long]]
         val shifuEval = new ShifuEval(SourceType.LOCAL, "./ModelConfig.json", "./ColumnConfig.json", "", context, accumMap)
+        shifuEval.init
         shifuEval.eval
         context.stop
     }

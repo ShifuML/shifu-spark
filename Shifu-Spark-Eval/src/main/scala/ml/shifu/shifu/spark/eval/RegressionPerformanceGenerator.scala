@@ -209,7 +209,9 @@ class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalC
             result.reverse.iterator
         })
         //TODO: change hard code path
-        val perfResult = perfResultRDD.saveAsTextFile("hdfs:///user/website/wzhu1/" + key + "-perf.txt")
+        val savePath = evalConfig.value.getName + "_" + key + "_" + System.currentTimeMillis + "-perf.txt"
+        Console.println("Save performance file to " + savePath)
+        val perfResult = perfResultRDD.saveAsTextFile(savePath)
         sortedRDD.unpersist(true)
         perfResultRDD.collect
     }
