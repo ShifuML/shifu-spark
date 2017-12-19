@@ -6,13 +6,6 @@
   <name>${project.artifactId}</name>
   <description>Evaluate shifu model with spark</description>
   <inceptionYear>2017</inceptionYear>
-  <licenses>
-    <license>
-      <name>My License</name>
-      <url>http://....</url>
-      <distribution>repo</distribution>
-    </license>
-  </licenses>
 
   <properties>
     <maven.compiler.source>1.6</maven.compiler.source>
@@ -20,6 +13,8 @@
     <encoding>UTF-8</encoding>
     <scala.version>2.10.4</scala.version>
     <scala.compat.version>2.10</scala.compat.version>
+    <shifu.version>0.11.0-SNAPSHOT</shifu.version>
+    <shifu.platform.version>hdp-yarn</shifu.platform.version>
   </properties>
 
   <dependencies>
@@ -31,14 +26,13 @@
     <dependency>
       <groupId>ml.shifu</groupId>
       <artifactId>shifu</artifactId>
-      <version>0.11.0-SNAPSHOT</version>
+      <version>${shifu.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_2.10</artifactId>
       <version>1.6.1</version>
     </dependency>
-
   </dependencies>
 
   <build>
@@ -54,7 +48,6 @@
           <execution>
             <goals>
               <goal>compile</goal>
-              <goal>testCompile</goal>
             </goals>
             <configuration>
               <args>
@@ -67,19 +60,42 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.18.1</version>
+        <groupId>org.codehaus.mojo</groupId> 
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.6.0</version>
+        <executions>
+             <execution>
+                <id>exec</id>
+                 <phase>package</phase>
+                 <goals>
+                     <goal>exec</goal>
+                 </goals>
+             </execution>
+        </executions>
         <configuration>
-          <useFile>false</useFile>
-          <disableXmlReport>true</disableXmlReport>
-          <!-- If you have classpath issue like NoDefClassError,... -->
-          <!-- useManifestOnlyJar>false</useManifestOnlyJar -->
-          <includes>
-            <include>**/*Test.*</include>
-            <include>**/*Suite.*</include>
-          </includes>
+            <executable>${project.basedir}/src/main/bash/package-shifu.sh</executable>
+            <workingDirectory>${project.build.directory}/</workingDirectory>
         </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>2.3</version>
+        <executions>
+            <execution>
+                <id>make-assembly</id>
+                <phase>package</phase>
+                <goals>
+                    <goal>single</goal>
+                </goals>
+                <configuration>
+                    <descriptors>
+                        <descriptor>assembly-hadoop2.xml</descriptor>
+                    </descriptors>
+                    <finalName>shifu-${shifu.version}</finalName>
+                    <appendAssemblyId>true</appendAssemblyId>
+                </configuration>
+            </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
