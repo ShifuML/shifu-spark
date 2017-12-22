@@ -89,7 +89,7 @@
                 </goals>
                 <configuration>
                     <descriptors>
-                        <descriptor>assembly-hadoop2.xml</descriptor>
+                        <descriptor>assembly.xml</descriptor>
                     </descriptors>
                     <finalName>shifu-${shifu.version}</finalName>
                     <appendAssemblyId>true</appendAssemblyId>
