@@ -165,6 +165,8 @@
                 <include>*:commons-configuration:*</include>
                 <include>*:hadoop-auth:*</include>
                 <include>*:shifu-spark-eval:*</include>
+                <include>*:shifu:*</include>
+    </dependency>
             </includes>
         </dependencySet>
         <dependencySet>
