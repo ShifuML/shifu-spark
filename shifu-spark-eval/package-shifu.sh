@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+#compile the project
+MAVEN=`command -v mvn`
+if [ ${MAVEN} != "" ]; then 
+    ${MAVEN} -DskipTests clean install
+fi
+
 SHIFU_PACKAGE_PATH=`find . -iname shifu*-hdp-yarn.tar.gz`
 
 echo "${SHIFU_PACKAGE_PATH}"
