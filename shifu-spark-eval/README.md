@@ -4,7 +4,7 @@ Usage :
        
        1. Build your project with maven.
 
-       2. Run src/main/bash/package-shifu.sh in shifu spark eval project root dir(shifu-spark-eval/).
+       2. Run package-shifu.sh in shifu spark eval project root dir(shifu-spark-eval/).
 
        3. Decompress the package or put the shifu-spark-eval jar file into SHIFU_HOME/lib in your hadoop client machine.
 
