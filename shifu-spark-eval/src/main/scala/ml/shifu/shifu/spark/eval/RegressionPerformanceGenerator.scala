@@ -65,7 +65,9 @@ class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalC
         //TODO: remove debug log
         Console.println("Start gen " + key + " perf")
         sortedRDD.persist(StorageLevel.MEMORY_AND_DISK)
-        sortedRDD.saveAsTextFile("hdfs:///user/website/wzhu1/" + key + "-sorted.txt")
+        val saveSortedPath = evalConfig.value.getName + "-" + key + System.currentTimeMillis + "-sorted.txt"
+        sortedRDD.saveAsTextFile(saveSortedPath)
+        Console.println("Save " + key + "sorted score to " + saveSortedPath)
         val partitionsCount = sortedRDD.getNumPartitions
         val getLast = (iterator : Iterator[Map[String, Double]]) => {
             if(!iterator.hasNext) {
@@ -209,9 +211,9 @@ class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalC
             result.reverse.iterator
         })
         //TODO: change hard code path
-        val savePath = evalConfig.value.getName + "_" + key + "_" + System.currentTimeMillis + "-perf.txt"
-        Console.println("Save performance file to " + savePath)
-        val perfResult = perfResultRDD.saveAsTextFile(savePath)
+        val savePerfPath = evalConfig.value.getName + "_" + key + "_" + System.currentTimeMillis + "-perf.txt"
+        Console.println("Save " + key +" performance file to " + savePerfPath)
+        val perfResult = perfResultRDD.saveAsTextFile(savePerfPath)
         sortedRDD.unpersist(true)
         perfResultRDD.collect
     }
