@@ -198,12 +198,26 @@ class RegressionPerformanceGenerator(modelConfig : Broadcast[ModelConfig], evalC
                 while(lIterator.hasNext && !keep) {
                     val (k, v) = lIterator.next
                     keep = k match {
-                        case "score" => v.toInt - array.last.getOrElse(k, 0d).toInt != 0
+                        case "score" => {
+                        Console.println("Score return " + (v.toInt - array.last.getOrElse(k, 0d).toInt != 0) + ", socre is " + v + " last is " + array.last.getOrElse(k, 0d)) 
+                        v.toInt - array.last.getOrElse(k, 0d).toInt != 0
+                        }
                         case "currentRecord" => false
-                        case _ => (v * numBucket).toInt - (array.last.getOrElse(k, 0d) * numBucket).toInt != 0
+                        case "fn" => false
+                        case "fp" => false
+                        case "tp" => false
+                        case "tn" => false
+                        case "weightFn" => false
+                        case "weightFp" => false
+                        case "weightTn" => false
+                        case "weightTp" => false
+                        case _ => {
+                            Console.println(k + " return " +  ((v * numBucket).toInt - (array.last.getOrElse(k, 0d) * numBucket).toInt != 0))
+                        (v * numBucket).toInt - (array.last.getOrElse(k, 0d) * numBucket).toInt != 0
+                        }
                     }
                 }
-                if(keep || !lIterator.hasNext) {
+                if(keep) {
                     array += x
                 }
                 array
