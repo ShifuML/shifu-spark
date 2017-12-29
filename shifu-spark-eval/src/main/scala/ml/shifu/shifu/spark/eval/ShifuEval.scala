@@ -11,11 +11,19 @@ import ml.shifu.shifu.container.meta.ValidateResult
 import ml.shifu.shifu.core.validator.ModelInspector
 import ml.shifu.shifu.core.validator.ModelInspector.ModelStep
 import ml.shifu.shifu.column.NSColumn
+import ml.shifu.shifu.util.Environment
+import ml.shifu.shifu.core.mr.input.CombineInputFormat
 
 import org.apache.spark.{SparkContext, SparkConf, Accumulator}
-import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.{RDD, NewHadoopRDD}
+import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.StringUtils
+import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
+import org.apache.hadoop.mapreduce.Job
+import org.apache.hadoop.io.{Text, LongWritable}
 
 import scala.collection.mutable.{ArrayBuffer, Set, HashSet, Map, HashMap}
 import scala.collection.JavaConverters._
@@ -36,7 +44,7 @@ class ShifuEval(sourceType : SourceType, modelConfigPath : String, columnConfigP
     }
     val columnConfigList : java.util.List[ColumnConfig] = CommonUtils.loadColumnConfigList(columnConfigPath, sourceType)
     val headers : Array[String] = CommonUtils.getFinalHeaders(evalConfig)
-    var inputRDD : RDD[String] = context.textFile(evalConfig.getDataSet.getDataPath)
+    var inputRDD : RDD[String] = _
     val pathFinder : PathFinder = new PathFinder(modelConfig)
 
     def init() {
@@ -50,6 +58,15 @@ class ShifuEval(sourceType : SourceType, modelConfigPath : String, columnConfigP
         this.sourceType match {
             case SourceType.HDFS => CommonUtils.copyConfFromLocalToHDFS(this.modelConfig, this.pathFinder)
             case _ => false
+        }
+        inputRDD = {
+            //init guagua input format
+            val jobConf = context.hadoopConfiguration
+            jobConf.setLong(CombineInputFormat.SHIFU_VS_SPLIT_MAX_COMBINED_SPLIT_SIZE, Environment.getLong(CombineInputFormat.SHIFU_VS_SPLIT_MAX_COMBINED_SPLIT_SIZE, FileSystem.get(jobConf).getDefaultBlockSize))
+            jobConf.setBoolean(CombineInputFormat.SHIFU_VS_SPLIT_COMBINABLE, Environment.getBoolean(CombineInputFormat.SHIFU_VS_SPLIT_COMBINABLE, false))
+            jobConf.set("mapreduce.input.fileinputformat.inputdir", evalConfig.getDataSet.getDataPath)
+            val hadoopRDD = new NewHadoopRDD(context, classOf[CombineInputFormat], classOf[LongWritable], classOf[Text], jobConf)
+            hadoopRDD.map(x => x._2.toString)
         }
     }
 
